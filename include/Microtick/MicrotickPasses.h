@@ -21,6 +21,12 @@ namespace tick {
 
 std::unique_ptr<mlir::Pass> createMicrotickVerifyPass();
 
+/// Create a pass that lowers MicroTick IR to a simple runtime API.
+/// expressed using the func dialect. This rewrites
+/// - tick.order_send -> func.call @mt_order_send(...);
+/// - tick.order_cancel -> func.call @mt_order_cancel(...);
+std::unique_ptr<mlir::Pass> createMicrotickLowerRuntimePass();
+
 /// Register all MicroTick passes.
 void registerMicrotickPasses();
 

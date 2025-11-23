@@ -94,4 +94,9 @@ std::unique_ptr<mlir::Pass> microtick::tick::createMicrotickVerifyPass() {
   return std::make_unique<MicrotickVerifyPass>();
 }
 
-void microtick::tick::registerMicrotickPasses() { PassRegistration<MicrotickVerifyPass>(); }
+void microtick::tick::registerMicrotickPasses() {
+  PassRegistration<MicrotickVerifyPass>();
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return microtick::tick::createMicrotickLowerRuntimePass();
+  });
+}
