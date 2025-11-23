@@ -18,6 +18,49 @@ using namespace mlir;
 using namespace microtick::tick;
 
 namespace {
+
+/// Helper: enforce "risk-before-send" invariants in MicroTick IR
+///
+/// For each block in the handler body
+/// require that any `tick.order.send` is dominated by a
+/// `tick.risk_check.notional` in the same block.
+template <typename HandlerOp>
+static void verifyRiskBeforeSendInHandler(HandlerOp handlerOp, bool &hasError) {
+  Block &block          = handlerOp.getBody().front();
+  bool   hasRiskCheckOp = false;
+
+  for (Operation &op : block) {
+    if (llvm::isa<RiskCheckNotionalOp>(op)) {
+      hasRiskCheckOp = true;
+      continue;
+    }
+
+    if (auto orderSendOp = dyn_cast<OrderSendOp>(op)) {
+      if (!hasRiskCheckOp) {
+        hasError = true;
+        op.emitError() << "`tick.order.send` must be dominated by a "
+                          "`tick.risk_check.notional` in the same block.";
+      }
+      continue;
+    }
+  }
+}
+
+/// Helper: disallow direct sends/cancels in tick.on_timer handlers
+static void verifyNoOrdersInTimer(OnTimerOp OnTimerOp, bool &hasError) {
+  Block &block = OnTimerOp.getBody().front();
+
+  for (Operation &op : block) {
+    if (llvm::isa<OrderSendOp>(&op)) {
+      hasError = true;
+      op.emitError() << "`tick.order.send` is not allowed in `tick.on_timer` handlers.";
+    }
+    if (llvm::isa<OrderCancelOp>(&op)) {
+      hasError = true;
+      op.emitError() << "`tick.order.cancel` is not allowed in `tick.on_timer` handlers.";
+    }
+  }
+}
 struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MicrotickVerifyPass)
 
@@ -27,63 +70,10 @@ struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPa
 
     // 1. Verify that every `tick.order.send` is dominated by a
     //    `tick.risk_check.notional` in the same block.
-    func.walk([&](OnBookOp onBook) {
-      Block &block          = onBook.getBody().front();
-      bool   hasRiskCheckOp = false;
-
-      for (Operation &op : block) {
-        if (auto riskOp = dyn_cast<RiskCheckNotionalOp>(op)) {
-          hasRiskCheckOp = true;
-          continue;
-        }
-
-        if (auto orderSendOp = dyn_cast<OrderSendOp>(op)) {
-          if (!hasRiskCheckOp) {
-            hasEror = true;
-            op.emitError() << "`tick.order.send` must be dominated by a "
-                              "`tick.risk_check.notional` in the same block.";
-          }
-          continue;
-        }
-      }
-    });
-    // 2. Risk-before-send in tick.on_trade (same as tick.on_book for now).
-    func.walk([&](OnTradeOp onTrade) {
-      Block &block          = onTrade.getBody().front();
-      bool   hasRiskCheckOp = false;
-
-      for (Operation &op : block) {
-        if (auto riskOp = dyn_cast<RiskCheckNotionalOp>(op)) {
-          hasRiskCheckOp = true;
-          continue;
-        }
-
-        if (auto orderSendOp = dyn_cast<OrderSendOp>(op)) {
-          if (!hasRiskCheckOp) {
-            hasEror = true;
-            op.emitError() << "`tick.order.send` must be dominated by a "
-                              "`tick.risk_check.notional` in the same block.";
-          }
-          continue;
-        }
-      }
-    });
-
-    // 3. No direct sends/cancels in tick.on_timer handlers.
-    func.walk([&](OnTimerOp onTimer) {
-      Block &block = onTimer.getBody().front();
-
-      for (Operation &op : block) {
-        if (auto orderSendOp = dyn_cast<OrderSendOp>(op)) {
-          hasEror = true;
-          op.emitError() << "`tick.order.send` is not allowed in `tick.on_timer` handlers.";
-        }
-        if (auto orderCancelOp = dyn_cast<OrderCancelOp>(op)) {
-          hasEror = true;
-          op.emitError() << "`tick.order.cancel` is not allowed in `tick.on_timer` handlers.";
-        }
-      }
-    });
+    func.walk([&](OnBookOp onBookOp) { verifyRiskBeforeSendInHandler(onBookOp, hasEror); });
+    func.walk([&](OnTradeOp onTradeOp) { verifyRiskBeforeSendInHandler(onTradeOp, hasEror); });
+    // 2. Verify that `tick.on_timer` handlers do not contain direct order sends/cancels
+    func.walk([&](OnTimerOp onTimerOp) { verifyNoOrdersInTimer(onTimerOp, hasEror); });
     if (hasEror) {
       signalPassFailure();
     }
