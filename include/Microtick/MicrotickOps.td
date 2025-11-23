@@ -50,4 +50,35 @@ def Tick_OrderSendOp : Op<Tick_Dialect, "order.send"> {
 
 }
 
+// Cancel a previously sent order.
+// For now, we just key off symbol + client_order_id + side.
+def Tick_OrderCancelOp : Op<Tick_Dialect, "order.cancel"> {
+    let summary = "Cancel an existing order";
+    let description = [{
+        Cancels an existing order identified by:
+            - symbol : string attribute (e.g., "AAPL")
+            - client_order_id : string attribute (unique per client)
+            - side : string attribute (e.g., "buy" or "sell")
+        
+        This op has no operands or results; it is a logical operation.
+    }];
+
+    let arguments = (ins
+        StrAttr:$symbol,
+        StrAttr:$client_order_id,
+        StrAttr:$side
+    );
+
+    // We need a custom C++ verifier.
+    let hasVerifier = 1;
+
+    let assemblyFormat = [{
+    `symbol` `(` $symbol `)`
+    `client_order_id` `(` $client_order_id `)`
+    `side` `(` $side `)`
+    attr-dict
+  }];
+
+}
+
 #endif // MICROTICK_OPS_TD

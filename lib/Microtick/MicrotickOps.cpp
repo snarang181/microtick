@@ -16,3 +16,16 @@ using namespace microtick::tick;
 // This macro block comes from the generated .cpp.inc
 #define GET_OP_CLASSES
 #include "Microtick/MicrotickOps.cpp.inc"
+
+//===----------------------------------------------------------------------===//
+// Tick_OrderCancelOp verifier
+//===----------------------------------------------------------------------===//
+
+LogicalResult OrderCancelOp::verify() {
+  // side must be "Buy" or "Sell".
+  llvm::StringRef sideStr = getSide();
+  if (sideStr != "Buy" && sideStr != "Sell") {
+    return emitOpError("side attribute must be either 'Buy' or 'Sell'");
+  }
+  return success();
+}
