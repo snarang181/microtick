@@ -18,7 +18,6 @@ using namespace mlir;
 using namespace microtick::tick;
 
 namespace {
-
 struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPass<func::FuncOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MicrotickVerifyPass)
 
@@ -48,7 +47,29 @@ struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPa
         }
       }
     });
-    // 2. No direct sends/cancels in tick.on_timer handlers.
+    // 2. Risk-before-send in tick.on_trade (same as tick.on_book for now).
+    func.walk([&](OnTradeOp onTrade) {
+      Block &block          = onTrade.getBody().front();
+      bool   hasRiskCheckOp = false;
+
+      for (Operation &op : block) {
+        if (auto riskOp = dyn_cast<RiskCheckNotionalOp>(op)) {
+          hasRiskCheckOp = true;
+          continue;
+        }
+
+        if (auto orderSendOp = dyn_cast<OrderSendOp>(op)) {
+          if (!hasRiskCheckOp) {
+            hasEror = true;
+            op.emitError() << "`tick.order.send` must be dominated by a "
+                              "`tick.risk_check.notional` in the same block.";
+          }
+          continue;
+        }
+      }
+    });
+
+    // 3. No direct sends/cancels in tick.on_timer handlers.
     func.walk([&](OnTimerOp onTimer) {
       Block &block = onTimer.getBody().front();
 

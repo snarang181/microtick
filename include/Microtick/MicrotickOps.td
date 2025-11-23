@@ -23,7 +23,7 @@ def Tick_PingOp : Op<Tick_Dialect, "ping"> {
 }
 
 // tick.order.send %price, %qty symbol side : f64, i64, string, string
-def Tick_OrderSendOp : Op<Tick_Dialect, "order.send", [HasParent<"OnBookOp">]> {
+def Tick_OrderSendOp : Op<Tick_Dialect, "order.send"> {
     let summary = "Send an order to the exchange";
     let description = [{
         Issues an order with 
@@ -52,7 +52,7 @@ def Tick_OrderSendOp : Op<Tick_Dialect, "order.send", [HasParent<"OnBookOp">]> {
 
 // Cancel a previously sent order.
 // For now, we just key off symbol + client_order_id + side.
-def Tick_OrderCancelOp : Op<Tick_Dialect, "order.cancel", [HasParent<"OnBookOp">]> {
+def Tick_OrderCancelOp : Op<Tick_Dialect, "order.cancel"> {
     let summary = "Cancel an existing order";
     let description = [{
         Cancels an existing order identified by:
@@ -101,6 +101,28 @@ def Tick_OnBookOp : Op<Tick_Dialect, "on_book", [IsolatedFromAbove]> {
     $body
   }];
 
+}
+
+// Trade event hander:
+// 
+// tick.on_trade {
+//   ...
+//   tick.yield
+// }
+def Tick_OnTradeOp : Op<Tick_Dialect, "on_trade", [IsolatedFromAbove]> {
+  let summary = "Event handler for trade events";
+  let description = [{
+    Represents a strategy callback that runs on each trade or print event.
+    The body region contains the reactive logic (e.g., reacting to 
+    aggressive trades, updation of internal signals, staes, placing/canceling orders).
+    For now, region takes no arguments; trade details are assumed to be available via
+    some external mechanism (runtime, global state, etc.).
+  }];
+  let regions = (region AnyRegion:$body);
+  let assemblyFormat = [{
+    attr-dict-with-keyword
+    $body
+  }];
 }
 
 // Periodic timer callback:
