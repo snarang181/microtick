@@ -42,3 +42,15 @@ LogicalResult RiskCheckNotionalOp::verify() {
   }
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Tick_RiskCheckInventoryOp verifier
+//===----------------------------------------------------------------------===//
+LogicalResult RiskCheckInventoryOp::verify() {
+  // threshold must be positive.
+  int64_t limit = static_cast<int64_t>(getLimit());
+  if (limit <= 0) {
+    return emitOpError("limit attribute must be positive");
+  }
+  return success();
+}

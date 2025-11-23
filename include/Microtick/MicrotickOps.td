@@ -155,39 +155,14 @@ def Tick_OnTimerOp : Op<Tick_Dialect, "on_timer", [IsolatedFromAbove]> {
 
 }
 
-// Terminator for the tick.on_book body region.
-def Tick_YieldOp : Op<Tick_Dialect, "yield",
-                      [Terminator]> {
-  let summary = "terminator for MicroTick handler regions";
-  let description = [{
-    Terminates the body region of a MicroTick event handler (tick.on_book or tick.on_timer).
-    It has no operands or results.
-  }];
-
-  let assemblyFormat = "attr-dict";
-}
-
-// Check that the notional (price * qty) is within a specified limit.
+// Check that inventory (current position) is within specified limits.
 //
-// For now we just have a single attribute: limit : f64
-
-def Tick_RiskCheckNotionalOp : Op<Tick_Dialect, "risk.check_notional"> {
-    let summary = "Check that order notional is within limit";
+// This is a marker op: it carries an integer limit attribute
+// representing the maximum absolute position allowed for the given symbol.
+def Tick_RiskCheckInventoryOp : Op<Tick_Dialect, "risk.check_inventory"> {
+    let summary = "Check that inventory position is within limit";
     let description = [{
         Asserts that the subsuequent orders (in this handler) should respect the
-        given notional limit (price * quantity <= limit).
-        For now, this just encodes the entent; a later pass
-        will enforce that every tick.order.send is dominated by 
-        at least one tick.risk.check_notional with an appropriate limit.
-    }];
-
-    let arguments = (ins
-        F64Attr:$limit // e.g. 1_000_000.0 for one million
-    );
-    // We need a custom C++ verifier to enforce limit > 0.
-    let hasVerifier = 1;
-    let assemblyFormat = "attr-dict";
-
-}
-
-#endif // MICROTICK_OPS_TD
+        given inventory limit (abs(position) <= limit).
+        For now, this just encodes the entent; a verify pass
+        will enforce that every tick.order.send is

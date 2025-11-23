@@ -26,17 +26,22 @@ namespace {
 /// `tick.risk_check.notional` in the same block.
 template <typename HandlerOp>
 static void verifyRiskBeforeSendInHandler(HandlerOp handlerOp, bool &hasError) {
-  Block &block          = handlerOp.getBody().front();
-  bool   hasRiskCheckOp = false;
+  Block &block             = handlerOp.getBody().front();
+  bool   hasNotionalCheck  = false;
+  bool   hasInventoryCheck = false;
 
   for (Operation &op : block) {
     if (llvm::isa<RiskCheckNotionalOp>(op)) {
-      hasRiskCheckOp = true;
+      hasNotionalCheck = true;
+      continue;
+    }
+    if (llvm::isa<RiskCheckInventoryOp>(op)) {
+      hasInventoryCheck = true;
       continue;
     }
 
     if (auto orderSendOp = dyn_cast<OrderSendOp>(op)) {
-      if (!hasRiskCheckOp) {
+      if (!hasNotionalCheck || !hasInventoryCheck) {
         hasError = true;
         op.emitError() << "`tick.order.send` must be dominated by a "
                           "`tick.risk_check.notional` in the same block.";
