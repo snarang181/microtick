@@ -26,6 +26,8 @@ struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPa
     func::FuncOp func    = getOperation();
     bool         hasEror = false;
 
+    // 1. Verify that every `tick.order.send` is dominated by a
+    //    `tick.risk_check.notional` in the same block.
     func.walk([&](OnBookOp onBook) {
       Block &block          = onBook.getBody().front();
       bool   hasRiskCheckOp = false;
@@ -43,6 +45,21 @@ struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPa
                               "`tick.risk_check.notional` in the same block.";
           }
           continue;
+        }
+      }
+    });
+    // 2. No direct sends/cancels in tick.on_timer handlers.
+    func.walk([&](OnTimerOp onTimer) {
+      Block &block = onTimer.getBody().front();
+
+      for (Operation &op : block) {
+        if (auto orderSendOp = dyn_cast<OrderSendOp>(op)) {
+          hasEror = true;
+          op.emitError() << "`tick.order.send` is not allowed in `tick.on_timer` handlers.";
+        }
+        if (auto orderCancelOp = dyn_cast<OrderCancelOp>(op)) {
+          hasEror = true;
+          op.emitError() << "`tick.order.cancel` is not allowed in `tick.on_timer` handlers.";
         }
       }
     });

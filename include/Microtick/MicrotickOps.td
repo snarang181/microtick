@@ -103,13 +103,43 @@ def Tick_OnBookOp : Op<Tick_Dialect, "on_book", [IsolatedFromAbove]> {
 
 }
 
+// Periodic timer callback:
+//
+// tick.on_timer period_ns = 1_000_000 {
+// .... 
+//  tick.yield
+// }
+def Tick_OnTimerOp : Op<Tick_Dialect, "on_timer", [IsolatedFromAbove]> {
+  let summary = "Event handler for periodic timer callbacks";
+  let description = [{
+    Represents a perioidic callback that runs every `period_ns` nanoseconds.
+    The body contains risk/housekeeping logic to be executed. We will, for now,
+    enforce that no `tick.order.send` ops are allowed in this region.
+    Actual order sending should be done in the `tick.on_book` handler. 
+    This is intentional to separate risk logic from order sending logic.
+  }];
+
+  // period_ns : i64 attribute
+  let arguments = (ins
+    I64Attr:$period_ns // e.g., 1_000_000 for 1 millisecond
+  );
+
+  let regions = (region AnyRegion:$body);
+
+  let assemblyFormat = [{
+    attr-dict-with-keyword
+    $body
+  }];
+
+}
+
 // Terminator for the tick.on_book body region.
 def Tick_YieldOp : Op<Tick_Dialect, "yield",
-                      [Terminator, HasParent<"OnBookOp">]> {
-  let summary = "terminator for tick.on_book region";
+                      [Terminator]> {
+  let summary = "terminator for MicroTick handler regions";
   let description = [{
-    Terminates the body region of a tick.on_book handler. For now, it takes
-    no operands and produces no results.
+    Terminates the body region of a MicroTick event handler (tick.on_book or tick.on_timer).
+    It has no operands or results.
   }];
 
   let assemblyFormat = "attr-dict";
@@ -119,7 +149,7 @@ def Tick_YieldOp : Op<Tick_Dialect, "yield",
 //
 // For now we just have a single attribute: limit : f64
 
-def Tick_RiskCheckNotionalOp : Op<Tick_Dialect, "risk.check_notional", [HasParent<"OnBookOp">]> {
+def Tick_RiskCheckNotionalOp : Op<Tick_Dialect, "risk.check_notional"> {
     let summary = "Check that order notional is within limit";
     let description = [{
         Asserts that the subsuequent orders (in this handler) should respect the
