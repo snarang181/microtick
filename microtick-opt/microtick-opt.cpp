@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "Microtick/MicrotickDialect.h"
+#include "Microtick/MicrotickPasses.h"
 #include "mlir/IR/DialectRegistry.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
@@ -17,6 +18,10 @@ int main(int argc, char **argv) {
   DialectRegistry registry;
   registry.insert<microtick::tick::TickDialect>();
   registerAllDialects(registry);
+
+  // Register all passes.
+  registerAllPasses();
+  microtick::tick::registerMicrotickPasses();
 
   return asMainReturnCode(MlirOptMain(argc, argv, "MicroTick optimizer driver\n", registry));
 }

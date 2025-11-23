@@ -6,7 +6,8 @@ set(LIBS
   ${dialect_libs}
   ${conversion_libs}
   MLIROptLib     
-  MLIRRegisterAllDialects       
+  MLIRRegisterAllDialects      
+  MLIRRegisterAllPasses 
 )
 
 add_executable(microtick-opt microtick-opt.cpp)
