@@ -115,4 +115,27 @@ def Tick_YieldOp : Op<Tick_Dialect, "yield",
   let assemblyFormat = "attr-dict";
 }
 
+// Check that the notional (price * qty) is within a specified limit.
+//
+// For now we just have a single attribute: limit : f64
+
+def Tick_RiskCheckNotionalOp : Op<Tick_Dialect, "risk.check_notional", [HasParent<"OnBookOp">]> {
+    let summary = "Check that order notional is within limit";
+    let description = [{
+        Asserts that the subsuequent orders (in this handler) should respect the
+        given notional limit (price * quantity <= limit).
+        For now, this just encodes the entent; a later pass
+        will enforce that every tick.order.send is dominated by 
+        at least one tick.risk.check_notional with an appropriate limit.
+    }];
+
+    let arguments = (ins
+        F64Attr:$limit // e.g. 1_000_000.0 for one million
+    );
+    // We need a custom C++ verifier to enforce limit > 0.
+    let hasVerifier = 1;
+    let assemblyFormat = "attr-dict";
+
+}
+
 #endif // MICROTICK_OPS_TD

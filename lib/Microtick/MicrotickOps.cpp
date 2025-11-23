@@ -29,3 +29,16 @@ LogicalResult OrderCancelOp::verify() {
   }
   return success();
 }
+
+//===----------------------------------------------------------------------===//
+// Tick_RiskCheckNotionalOp verifier
+//===----------------------------------------------------------------------===//
+
+LogicalResult RiskCheckNotionalOp::verify() {
+  // threshold must be positive.
+  double limit = getLimit().convertToDouble();
+  if (limit <= 0.0) {
+    return emitOpError("limit attribute must be positive");
+  }
+  return success();
+}

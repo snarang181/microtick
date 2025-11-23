@@ -1,6 +1,8 @@
 module {
   func.func @strategy() {
     tick.on_book {
+      tick.risk.check_notional { limit = 1.000000e+06 : f64 }
+
       %p = arith.constant 101.25 : f64
       %q = arith.constant 50 : i64
 
@@ -12,9 +14,8 @@ module {
         symbol("AAPL")
         client_order_id("ABC123")
         side("Buy")
-       tick.yield
 
-      // later: risk checks, inventory updates, etc.
+      tick.yield
     }
 
     return
