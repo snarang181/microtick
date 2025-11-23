@@ -81,4 +81,38 @@ def Tick_OrderCancelOp : Op<Tick_Dialect, "order.cancel"> {
 
 }
 
+// Event handler op hat runs when the order book updates.
+// Usage:
+//  tick.on_book {
+//    ... strategy code ...
+//}
+def Tick_OnBookOp : Op<Tick_Dialect, "on_book", [IsolatedFromAbove]> {
+    let summary = "Event handler for order book updates";
+    let description = [{
+        Represents a strategy callback that runs on each book update.
+        The body contains the strategy logic to be executed (sends, cancels, etc.).
+        For now, region takes no arguments and has no results.
+    }];
+
+    let regions = (region AnyRegion:$body);
+
+    let assemblyFormat = [{
+    attr-dict-with-keyword
+    $body
+  }];
+
+}
+
+// Terminator for the tick.on_book body region.
+def Tick_YieldOp : Op<Tick_Dialect, "yield",
+                      [Terminator, HasParent<"OnBookOp">]> {
+  let summary = "terminator for tick.on_book region";
+  let description = [{
+    Terminates the body region of a tick.on_book handler. For now, it takes
+    no operands and produces no results.
+  }];
+
+  let assemblyFormat = "attr-dict";
+}
+
 #endif // MICROTICK_OPS_TD
