@@ -1,0 +1,18 @@
+BasedOnStyle: LLVM
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+ColumnLimit: 100
+
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+
+SpacesInAngles: false
+SpaceAfterCStyleCast: true
+SpaceBeforeParens: ControlStatements
+
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignOperands:   true
+AlignTrailingComments: true
+
