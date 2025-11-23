@@ -16,6 +16,7 @@ using namespace mlir;
 int main(int argc, char **argv) {
   DialectRegistry registry;
   registry.insert<microtick::tick::TickDialect>();
+  registerAllDialects(registry);
 
   return asMainReturnCode(MlirOptMain(argc, argv, "MicroTick optimizer driver\n", registry));
 }

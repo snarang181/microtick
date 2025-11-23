@@ -8,6 +8,7 @@
 #ifndef MICROTICK_MICROTICKOPS_H
 #define MICROTICK_MICROTICKOPS_H
 
+#include "mlir/Bytecode/BytecodeOpInterface.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Dialect.h"
 #include "mlir/IR/OpDefinition.h"

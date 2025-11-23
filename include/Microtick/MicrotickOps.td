@@ -22,4 +22,32 @@ def Tick_PingOp : Op<Tick_Dialect, "ping"> {
     let assemblyFormat = "attr-dict";
 }
 
+// tick.order.send %price, %qty symbol side : f64, i64, string, string
+def Tick_OrderSendOp : Op<Tick_Dialect, "order.send"> {
+    let summary = "Send an order to the exchange";
+    let description = [{
+        Issues an order with 
+            - price : f64
+            - quantity : i64
+            - symbol : string attribute (e.g., "AAPL")
+            - side : string attribute (e.g., "buy" or "sell")
+    }];
+
+    let arguments = (ins
+        F64:$price,
+        I64:$qty,
+        StrAttr:$symbol,
+        StrAttr:$side
+    );
+    let results = (outs);
+    let assemblyFormat = [{
+    $price `,` $qty
+      `symbol` `(` $symbol `)`
+      `side` `(` $side `)`
+      attr-dict
+      `:` type($price) `,` type($qty)
+  }];
+
+}
+
 #endif // MICROTICK_OPS_TD

@@ -5,7 +5,8 @@ message(STATUS "conversion libs ${conversion_libs}")
 set(LIBS
   ${dialect_libs}
   ${conversion_libs}
-  MLIROptLib            
+  MLIROptLib     
+  MLIRRegisterAllDialects       
 )
 
 add_executable(microtick-opt microtick-opt.cpp)
