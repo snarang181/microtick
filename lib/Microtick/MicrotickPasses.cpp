@@ -88,10 +88,76 @@ struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPa
     return "Verify MicroTick IR strategy-level invariants (risk-before-send).";
   }
 };
+
+/// Helper already used by the verify pass:
+/// - RiskCheckNotionalOp
+/// - RiskCheckInventoryOp
+/// - OnBookOp/OnTradeOp/OnTimerOp
+///
+/// Hoist all risk check ops to the top of the handler block.
+///
+/// For now, we only look at the firs block of the handler and:
+/// - Collect all risk check ops
+/// Move them before the first non-risk-check op. (This is a simple heuristic)
+
+template <typename HandlerOp> static void hoisRiskChecksInHandler(HandlerOp handlerOp) {
+  Block &block = handlerOp.getBody().front();
+
+  // Collect risk check ops
+  SmallVector<Operation *> riskCheckOps;
+  for (Operation &op : block) {
+    if (llvm::isa<RiskCheckNotionalOp>(op) || llvm::isa<RiskCheckInventoryOp>(op)) {
+      riskCheckOps.push_back(&op);
+    }
+    if (riskCheckOps.empty())
+      return; // No risk checks to hoist
+
+    // Find the insertion point: first non-risk-check op
+    Operation *firstNonRiskCheckOp = nullptr;
+    for (Operation &op : block) {
+      if (!llvm::isa<RiskCheckNotionalOp>(op) &&
+          !llvm::isa<RiskCheckInventoryOp>(op)) { // non-risk-check
+        firstNonRiskCheckOp = &op;
+        break;
+      }
+    }
+    // If all ops are risk checks, nothing to do
+    if (!firstNonRiskCheckOp)
+      return;
+
+    // MOve each risk op (in order) before the insertion point
+    for (Operation *riskOp : riskCheckOps) {
+      riskOp->moveBefore(firstNonRiskCheckOp);
+    }
+  }
+}
+
+struct MicrotickCanonicalizeHandlersPass
+    : public PassWrapper<MicrotickCanonicalizeHandlersPass, OperationPass<func::FuncOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MicrotickCanonicalizeHandlersPass)
+
+  void runOnOperation() override {
+    func::FuncOp func = getOperation();
+
+    func.walk([&](OnBookOp onBookOp) { hoisRiskChecksInHandler(onBookOp); });
+    func.walk([&](OnTradeOp onTradeOp) { hoisRiskChecksInHandler(onTradeOp); });
+    // Note: No risk checks in OnTimerOp
+  }
+
+  StringRef getArgument() const final { return "microtick-canonicalize-handlers"; }
+  StringRef getDescription() const final {
+    return "Canonicalize MicroTick handler ops (hoist risk checks).";
+  }
+};
+
 } // namespace
 
 std::unique_ptr<mlir::Pass> microtick::tick::createMicrotickVerifyPass() {
   return std::make_unique<MicrotickVerifyPass>();
+}
+
+std::unique_ptr<mlir::Pass> microtick::tick::createMicrotickCanonicalizeHandlersPass() {
+  return std::make_unique<MicrotickCanonicalizeHandlersPass>();
 }
 
 void microtick::tick::registerMicrotickPasses() {
@@ -99,4 +165,5 @@ void microtick::tick::registerMicrotickPasses() {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return microtick::tick::createMicrotickLowerRuntimePass();
   });
+  PassRegistration<MicrotickCanonicalizeHandlersPass>();
 }

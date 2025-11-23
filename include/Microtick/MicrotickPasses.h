@@ -27,6 +27,10 @@ std::unique_ptr<mlir::Pass> createMicrotickVerifyPass();
 /// - tick.order_cancel -> func.call @mt_order_cancel(...);
 std::unique_ptr<mlir::Pass> createMicrotickLowerRuntimePass();
 
+/// Canonicalization pass that rewrites Microtick handlers into a normalized form.
+/// We hoist all tick.risk.check_* ops to the top of the handler
+std::unique_ptr<mlir::Pass> createMicrotickCanonicalizeHandlersPass();
+
 /// Register all MicroTick passes.
 void registerMicrotickPasses();
 
