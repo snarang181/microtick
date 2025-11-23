@@ -23,7 +23,7 @@ def Tick_PingOp : Op<Tick_Dialect, "ping"> {
 }
 
 // tick.order.send %price, %qty symbol side : f64, i64, string, string
-def Tick_OrderSendOp : Op<Tick_Dialect, "order.send"> {
+def Tick_OrderSendOp : Op<Tick_Dialect, "order.send", [HasParent<"OnBookOp">]> {
     let summary = "Send an order to the exchange";
     let description = [{
         Issues an order with 
@@ -52,7 +52,7 @@ def Tick_OrderSendOp : Op<Tick_Dialect, "order.send"> {
 
 // Cancel a previously sent order.
 // For now, we just key off symbol + client_order_id + side.
-def Tick_OrderCancelOp : Op<Tick_Dialect, "order.cancel"> {
+def Tick_OrderCancelOp : Op<Tick_Dialect, "order.cancel", [HasParent<"OnBookOp">]> {
     let summary = "Cancel an existing order";
     let description = [{
         Cancels an existing order identified by:
