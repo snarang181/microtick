@@ -10,6 +10,7 @@
 #include "Microtick/MicrotickOps.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
@@ -103,45 +104,36 @@ struct MicrotickVerifyPass : public PassWrapper<MicrotickVerifyPass, OperationPa
 template <typename HandlerOp> static void hoisRiskChecksInHandler(HandlerOp handlerOp) {
   Block &block = handlerOp.getBody().front();
 
-  // Collect risk check ops
+  if (block.empty())
+    return;
+
   SmallVector<Operation *> riskCheckOps;
   for (Operation &op : block) {
     if (llvm::isa<RiskCheckNotionalOp>(op) || llvm::isa<RiskCheckInventoryOp>(op)) {
       riskCheckOps.push_back(&op);
     }
-    if (riskCheckOps.empty())
-      return; // No risk checks to hoist
-
-    // Find the insertion point: first non-risk-check op
-    Operation *firstNonRiskCheckOp = nullptr;
-    for (Operation &op : block) {
-      if (!llvm::isa<RiskCheckNotionalOp>(op) &&
-          !llvm::isa<RiskCheckInventoryOp>(op)) { // non-risk-check
-        firstNonRiskCheckOp = &op;
-        break;
-      }
-    }
-    // If all ops are risk checks, nothing to do
-    if (!firstNonRiskCheckOp)
-      return;
-
-    // MOve each risk op (in order) before the insertion point
-    for (Operation *riskOp : riskCheckOps) {
-      riskOp->moveBefore(firstNonRiskCheckOp);
-    }
+  }
+  if (riskCheckOps.empty())
+    return;
+  // Move risk check ops to the top of the block
+  // iterate in reverse to avoid invalidating the order
+  for (auto it = riskCheckOps.rbegin(); it != riskCheckOps.rend(); ++it) {
+    Operation *op = *it;
+    op->moveBefore(&block.front());
   }
 }
 
 struct MicrotickCanonicalizeHandlersPass
-    : public PassWrapper<MicrotickCanonicalizeHandlersPass, OperationPass<func::FuncOp>> {
+    : public PassWrapper<MicrotickCanonicalizeHandlersPass, OperationPass<mlir::ModuleOp>> {
   MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(MicrotickCanonicalizeHandlersPass)
 
   void runOnOperation() override {
-    func::FuncOp func = getOperation();
+    ModuleOp module = getOperation();
 
-    func.walk([&](OnBookOp onBookOp) { hoisRiskChecksInHandler(onBookOp); });
-    func.walk([&](OnTradeOp onTradeOp) { hoisRiskChecksInHandler(onTradeOp); });
-    // Note: No risk checks in OnTimerOp
+    module.walk([&](func::FuncOp func) {
+      func.walk([&](OnBookOp onBookOp) { hoisRiskChecksInHandler(onBookOp); });
+      func.walk([&](OnTradeOp onTradeOp) { hoisRiskChecksInHandler(onTradeOp); });
+    });
   }
 
   StringRef getArgument() const final { return "microtick-canonicalize-handlers"; }
@@ -165,5 +157,7 @@ void microtick::tick::registerMicrotickPasses() {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return microtick::tick::createMicrotickLowerRuntimePass();
   });
-  PassRegistration<MicrotickCanonicalizeHandlersPass>();
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return microtick::tick::createMicrotickCanonicalizeHandlersPass();
+  });
 }
