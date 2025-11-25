@@ -18,6 +18,45 @@ MicroTick has a reproducible end-to-end flow:
    - `dlopen` is the shared library
    - `dlsym` is the strategy entrypoint
    - calls it repeatedly and implements the runtime API (`mt_order_send`, `mt_order_cancel`, …)
+  
+## Inspecting `${REPO_ROOT}/testing-ir/strategy_e2e_demo.mlir`
+
+Let's say we run `./utils/compile_strategy.sh testing-ir/strategy_e2e_demo.mlir strategy_e2e_demo 10`
+
+In the MLIR, we have two send orders followed by a cancel: a passive buy of (99.50 x 10) and an aggressive buy of (101.25 x 50) followed by immediate cancel of the most recebt buy.The surviving orders at the end of the event handler, the send order will be filled at the *limit price*. 
+
+So per market event:
+
+  * $99.50 * 10$: open and gets filled
+
+  * $101.25 * 50$: canceled and gets skipped
+
+Since we invoked 10 market events:
+  
+  Per Event:
+
+    * Position Change: +10
+
+    * Cash Change: -99.50 x 10 = -995 
+    
+  After 10 events:
+
+    * Position = 10 x 10 = 100 
+
+    * Cash = 10 x (-995) = -9,950.00
+  
+  The Engine assumes a market price of 100 for the symbol to calculate Profit and Loss (*PnL*)
+
+  ```cpp
+  double marketPrice = 100.0;
+double pnl = cash + position * marketPrice;
+           = -9950 + 100 * 100
+           = -9950 + 10000
+           = 50
+
+  ```
+  
+
 
 
 ## Lower your IR from initial MLIR (e2e demo)
