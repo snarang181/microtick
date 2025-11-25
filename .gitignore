@@ -49,3 +49,6 @@ build/
 
 #VSCode files
 .vscode/
+
+# Output folders
+/out/
