@@ -3,6 +3,61 @@
 **Microtick** is an experimental [MLIR](https://mlir.llvm.org/)–based DSL for expressing
 high-frequency trading (HFT) strategies as IR.
 
+## Building Microtick
+
+### Prerequisites
+
+Microtick is built against a local LLVM/MLIR build tree (not system packages).
+
+You’ll need:
+
+- A local LLVM/MLIR build with the following tools built:
+  - `mlir-opt`, `mlir-translate`, `llc`, `clang`
+- CMake ≥ 3.20
+- Ninja
+- A C++17 compiler (Clang recommended)
+
+The examples below assume:
+
+```text
+LLVM build:  $HOME/Downloads/llvm-project/build
+Microtick:   $REPO_ROOT (this repo)
+```
+and that your LLVM build was configured with MLIR enabled, e.g. something like:
+```bash
+cmake -G Ninja \
+  -DLLVM_ENABLE_PROJECTS="mlir;clang" \
+  -DCMAKE_BUILD_TYPE=Release \
+  ../llvm
+ninja
+```
+
+**Configure and build Microtick**
+```bash
+cd ${REPO_ROOT}
+mkdir -p build
+cd build
+
+cmake -G Ninja \
+  -DLLVM_DIR=$HOME/Downloads/llvm-project/build/lib/cmake/llvm \
+  -DMLIR_DIR=$HOME/Downloads/llvm-project/build/lib/cmake/mlir \
+  -DCMAKE_BUILD_TYPE=Debug \
+  ..
+
+# Build the Microtick tools and engine
+ninja 
+
+## Verification
+# Check that the custom microtick-opt exists and is wired up
+./microtick-opt/microtick-opt --help | grep microtick
+
+# Check that the engine binary is built
+./runtime/src/microtick-engine || true
+# (it will print a usage message complaining about a missing strategy, which is fine)
+```
+
+Congrats, you're all set up!
+
 ## End-to-End Pipeline & Naming Conventions
 
 MicroTick has a reproducible end-to-end flow:
