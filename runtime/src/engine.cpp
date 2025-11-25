@@ -8,8 +8,11 @@
 
 struct Order {
   std::int64_t id;
+  std::int32_t symbol_id;
+  std::int8_t  side; // +1 for buy, -1 for sell
   double       price;
-  std::int64_t qty; // positive for buy, negative for sell
+  std::int64_t qty;  // positive for buy, negative for sell
+  bool         open; // true if order is still open
 };
 
 struct Fill {
@@ -31,18 +34,8 @@ static EngineState engineState; // global engine state
 extern "C" void mt_order_send(std::int32_t symbol_id, std::int8_t side, double price,
                               std::int64_t qty) {
   std::int64_t orderId = engineState.nextOrderId++; // assign unique order ID
-  Order        newOrder{orderId, price, qty};
+  Order        newOrder{orderId, symbol_id, side, price, qty, /*open=*/true};
   engineState.openOrders.push_back(newOrder);
-
-  // Simple immediate fill logic model.
-  Fill newFill{orderId, price, qty};
-  engineState.fills.push_back(newFill);
-
-  // Update cash and position
-  // buy qty @ price -> pay price * qty cash, increase position by qty
-  // sell qty @ price -> receive price * qty cash, decrease position by qty
-  engineState.position += qty;
-  engineState.cash -= price * static_cast<double>(qty);
 
   const char *symbolName = (symbol_id == 0)   ? "AAPL"
                            : (symbol_id == 1) ? "MSFT"
@@ -60,20 +53,41 @@ extern "C" void mt_order_cancel(std::int32_t symbol_id, std::int8_t side) {
                                               : "UNKNOWN"; //  Simple symbol mapping for now
   const char *sideName   = (side > 0) ? "BUY" : "SELL";
 
-  // Semantics for now:
-  //  - Find the most recent open order and mark it as cancel
-  //  - We do not adjust cash/postion since we assume, models are immediate fill
-  //  - this is just to demonstrate the cancel API. In real world, we would not auto-fill and cancel
-  //  would affect risk.
-
-  if (!engineState.openOrders.empty()) {
-    Order lastOrder = engineState.openOrders.back();
-    engineState.openOrders.pop_back(); // remove the last order
-
-    std::printf("[ENGINE] Order Canceled: ID=%lld, Symbol=%s, Side=%s\n", lastOrder.id, symbolName,
+  // Find the most recent open order for the given symbol and side.
+  for (auto it = engineState.openOrders.rbegin(); it != engineState.openOrders.rend(); ++it) {
+    if (!it->open)
+      continue; // Skip closed orders
+    if (it->symbol_id != symbol_id || it->side != side)
+      continue; // Not matching
+    // Cancel the order
+    it->open = false;
+    std::printf("[ENGINE] Order Canceled: ID=%lld, Symbol=%s, Side=%s\n", it->id, symbolName,
                 sideName);
-  } else {
-    std::printf("[ENGINE] No open orders to cancel for Symbol=%s, Side=%s\n", symbolName, sideName);
+    return;
+  }
+  std::printf("[ENGINE] No open order found to cancel for Symbol=%s, Side=%s\n", symbolName,
+              sideName);
+}
+
+void simulateFills() {
+  // Toy model:
+  //  - Any order that is still open at the end of the event gets filled at its limit price.
+  for (auto &order : engineState.openOrders) {
+    if (!order.open)
+      continue; // Skip closed orders
+    double tradingPrice = order.price;
+
+    // Apply fill
+    engineState.cash -= tradingPrice * order.qty * order.side; // Update cash
+    engineState.position += order.qty * order.side;            // Update position
+
+    // Log fill
+    std::printf("[ENGINE] Order Filled: ID=%lld, Price=%.2f, Qty=%lld\n", order.id, tradingPrice,
+                order.qty);
+    // Add to fills
+    Fill newFill{order.id, tradingPrice, order.qty};
+    engineState.fills.push_back(newFill);
+    order.open = false; // Mark order as closed
   }
 }
 
@@ -122,7 +136,8 @@ int main(int argc, char **argv) {
   // Simulate market events
   for (int i = 0; i < numEvents; ++i) {
     std::printf("[ENGINE] Processing market event %d\n", i + 1);
-    onBook(); // Call the strategy's on_book function
+    onBook();        // Call the strategy's on_book function -> may send/cancel orders
+    simulateFills(); // Simulate fills for any open orders
   }
 
   // Print final engine state
