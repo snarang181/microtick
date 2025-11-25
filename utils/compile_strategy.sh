@@ -30,6 +30,7 @@ MLIR_OPT="$LLVM_BUILD_DIR/bin/mlir-opt"
 MLIR_TRANSLATE="$LLVM_BUILD_DIR/bin/mlir-translate"
 LLC="$LLVM_BUILD_DIR/bin/llc"
 CLANG="clang"
+STRATEGY_NAME="$BASENAME"
 
 echo "[STEP] MicroTick pipeline -> ${BASENAME}.lowered.mlir"
 "$MT_OPT" \
@@ -74,7 +75,7 @@ echo "[TEST] Running strategy with MicroTick engine"
 
 if [ -x "$ENGINE_BIN" ]; then
    echo "Running MicroTick engine with strategy lib${BASENAME}.dylib"
-  "$ENGINE_BIN"  "./lib${BASENAME}.dylib"
+  "$ENGINE_BIN"  "./lib${BASENAME}.dylib" "${BASENAME}" 10
 else
   echo "MicroTick engine binary not found or not executable: $ENGINE_BIN"
   echo "Please build the MicroTick engine to run the strategy."

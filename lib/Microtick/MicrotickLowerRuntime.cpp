@@ -10,8 +10,8 @@
 #include "Microtick/MicrotickOps.h"
 #include "Microtick/MicrotickPasses.h"
 
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
@@ -32,12 +32,13 @@ static func::FuncOp getOrCreateMtOrderSendFunc(ModuleOp module, OpBuilder &build
   if (auto existingFunc = module.lookupSymbol<func::FuncOp>(funcName))
     return existingFunc;
 
-  auto loc    = module.getLoc();
-  auto i32 = builder.getI32Type();
-  auto i8  = builder.getI8Type();
-  auto f64Ty  = builder.getF64Type();
-  auto i64Ty  = builder.getI64Type();
-  auto fnType = builder.getFunctionType(/*symbol_id, side, price, qty*/{i32, i8, f64Ty, i64Ty}, {});
+  auto loc   = module.getLoc();
+  auto i32   = builder.getI32Type();
+  auto i8    = builder.getI8Type();
+  auto f64Ty = builder.getF64Type();
+  auto i64Ty = builder.getI64Type();
+  auto fnType =
+      builder.getFunctionType(/*symbol_id, side, price, qty*/ {i32, i8, f64Ty, i64Ty}, {});
 
   auto func = func::FuncOp::create(loc, funcName, fnType);
   // Runtime functions should be set private.
@@ -58,7 +59,9 @@ static func::FuncOp getOrCreateMtOrderCancelFunc(ModuleOp module, OpBuilder &bui
     return existingFunc;
 
   auto loc    = module.getLoc();
-  auto fnType = builder.getFunctionType({}, {});
+  auto i32    = builder.getI32Type();
+  auto i8     = builder.getI8Type();
+  auto fnType = builder.getFunctionType({i32, i8}, {});
 
   auto func = func::FuncOp::create(loc, funcName, fnType);
   // Runtime functions should be set private.
@@ -82,7 +85,8 @@ struct LowerOrderSendPattern : public OpRewritePattern<OrderSendOp> {
     OpBuilder builder(module.getContext());
     auto      sendFunc = getOrCreateMtOrderSendFunc(module, builder);
 
-    // Map symbol attr -> symbold_id; for now, hardcode symbol_id=0 (AAPL) and symbol_id=1 (MSFT). Everything else -> 2.
+    // Map symbol attr -> symbold_id; for now, hardcode symbol_id=0 (AAPL) and symbol_id=1 (MSFT).
+    // Everything else -> 2.
     int32_t symbolId = 2;
     if (auto symbolAttr = op.getSymbolAttr()) {
       if (symbolAttr.getValue() == "AAPL")
@@ -94,14 +98,14 @@ struct LowerOrderSendPattern : public OpRewritePattern<OrderSendOp> {
     // Map side attr -> side int8_t; "buy" -> +1, "sell" -> -1
     int8_t side = 1;
     if (auto sideAttr = op.getSideAttr()) {
-        if (sideAttr.getValue() == "sell")
-          side = -1;
+      if (sideAttr.getValue() == "sell")
+        side = -1;
     }
 
-    auto symbolCons = rewriter.create<arith::ConstantOp>(
-        op.getLoc(), builder.getI32Type(), builder.getI32IntegerAttr(symbolId));
-    auto sideCons = rewriter.create<arith::ConstantOp>(
-        op.getLoc(), builder.getI8Type(), builder.getI8IntegerAttr(side));
+    auto symbolCons = rewriter.create<arith::ConstantOp>(op.getLoc(), builder.getI32Type(),
+                                                         builder.getI32IntegerAttr(symbolId));
+    auto sideCons   = rewriter.create<arith::ConstantOp>(op.getLoc(), builder.getI8Type(),
+                                                         builder.getI8IntegerAttr(side));
 
     SmallVector<Value> args;
     args.push_back(symbolCons);
@@ -124,9 +128,33 @@ struct LowerOrderCancelPattern : public OpRewritePattern<OrderCancelOp> {
     if (!module)
       return rewriter.notifyMatchFailure(op, "not inside a module");
 
-    OpBuilder          builder(module.getContext());
-    auto               cancelFunc = getOrCreateMtOrderCancelFunc(module, builder);
-    SmallVector<Value> args; // No arguments for cancel
+    OpBuilder builder(module.getContext());
+    auto      cancelFunc = getOrCreateMtOrderCancelFunc(module, builder);
+
+    // Map symbol attr -> symbold_id; for now, hardcode symbol_id=0 (AAPL) and symbol_id=1 (MSFT).
+    // Everything else -> 2.
+    int32_t symbolId = 2;
+    if (auto symbolAttr = op.getSymbolAttr()) {
+      if (symbolAttr.getValue() == "AAPL")
+        symbolId = 0;
+      else if (symbolAttr.getValue() == "MSFT")
+        symbolId = 1;
+    }
+
+    // Map side attr -> side int8_t; "buy" -> +1, "sell" -> -1
+    int8_t side = 1;
+    if (auto sideAttr = op.getSideAttr()) {
+      if (sideAttr.getValue() == "sell")
+        side = -1;
+    }
+
+    auto symbolCons = rewriter.create<arith::ConstantOp>(op.getLoc(), builder.getI32Type(),
+                                                         builder.getI32IntegerAttr(symbolId));
+    auto sideCons   = rewriter.create<arith::ConstantOp>(op.getLoc(), builder.getI8Type(),
+                                                         builder.getI8IntegerAttr(side));
+    SmallVector<Value> args;
+    args.push_back(symbolCons);
+    args.push_back(sideCons);
 
     rewriter.replaceOpWithNewOp<func::CallOp>(op, cancelFunc.getSymName(),
                                               cancelFunc.getFunctionType().getResults(), args);

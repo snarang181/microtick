@@ -5,7 +5,11 @@ high-frequency trading (HFT) strategies as IR.
 
 ## Lower your IR from initial MLIR 
 
-### TL;DR: Run an e2e lowering from the script in ${REPO_ROOT}/utils/compile_strategy.sh; check out the usage. 
+### TL;DR: Run an e2e lowering from the script in ${REPO_ROOT}/utils/compile_strategy.sh; 
+Run 
+```bash
+$ ./utils/compile_strategy.sh testing-ir/strategy_messy.mlir
+```
 
 Let's say ${REPO_ROOT}/testing-ir/strategy_messy.mlir 
 
@@ -59,7 +63,7 @@ clang -shared -undefined dynamic_lookup \
 ### Finally, we can run the engine 
 
 ```
-./runtime/src/microtick-engine ../libstrategy_messy.dylib
+./runtime/src/microtick-engine ../libstrategy_messy.dylib strategy_messy 10
 ```
 
 

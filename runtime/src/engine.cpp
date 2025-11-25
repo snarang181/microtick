@@ -28,7 +28,8 @@ struct EngineState {
 
 static EngineState engineState; // global engine state
 
-extern "C" void mt_order_send(std::int32_t symbol_id, std::int8_t side, double price, std::int64_t qty) {
+extern "C" void mt_order_send(std::int32_t symbol_id, std::int8_t side, double price,
+                              std::int64_t qty) {
   std::int64_t orderId = engineState.nextOrderId++; // assign unique order ID
   Order        newOrder{orderId, price, qty};
   engineState.openOrders.push_back(newOrder);
@@ -43,11 +44,37 @@ extern "C" void mt_order_send(std::int32_t symbol_id, std::int8_t side, double p
   engineState.position += qty;
   engineState.cash -= price * static_cast<double>(qty);
 
-  const char *symbolName = (symbol_id == 0) ? "AAPL" : (symbol_id == 1) ? "MSFT" : "UNKNOWN"; //  Simple symbol mapping for now
-  const char *sideName = (side > 0) ? "BUY" : "SELL";
+  const char *symbolName = (symbol_id == 0)   ? "AAPL"
+                           : (symbol_id == 1) ? "MSFT"
+                                              : "UNKNOWN"; //  Simple symbol mapping for now
+  const char *sideName   = (side > 0) ? "BUY" : "SELL";
 
   // Log order and fill
-  std::printf("[ENGINE] Order Sent: ID=%lld, Symbol=%s, Side=%s, Price=%.2f, Qty=%lld\n", orderId, symbolName, sideName, price, qty);
+  std::printf("[ENGINE] Order Sent: ID=%lld, Symbol=%s, Side=%s, Price=%.2f, Qty=%lld\n", orderId,
+              symbolName, sideName, price, qty);
+}
+
+extern "C" void mt_order_cancel(std::int32_t symbol_id, std::int8_t side) {
+  const char *symbolName = (symbol_id == 0)   ? "AAPL"
+                           : (symbol_id == 1) ? "MSFT"
+                                              : "UNKNOWN"; //  Simple symbol mapping for now
+  const char *sideName   = (side > 0) ? "BUY" : "SELL";
+
+  // Semantics for now:
+  //  - Find the most recent open order and mark it as cancel
+  //  - We do not adjust cash/postion since we assume, models are immediate fill
+  //  - this is just to demonstrate the cancel API. In real world, we would not auto-fill and cancel
+  //  would affect risk.
+
+  if (!engineState.openOrders.empty()) {
+    Order lastOrder = engineState.openOrders.back();
+    engineState.openOrders.pop_back(); // remove the last order
+
+    std::printf("[ENGINE] Order Canceled: ID=%lld, Symbol=%s, Side=%s\n", lastOrder.id, symbolName,
+                sideName);
+  } else {
+    std::printf("[ENGINE] No open orders to cancel for Symbol=%s, Side=%s\n", symbolName, sideName);
+  }
 }
 
 using OnBookFn = void (*)();
@@ -71,18 +98,30 @@ OnBookFn loadStrategyOnBook(const std::string &libPath, const std::string &symbo
 }
 
 int main(int argc, char **argv) {
-  if (argc < 2) {
-    std::fprintf(stderr, "Usage: %s <strategy_shared_library>\n", argv[0]);
-    return 1;
+  if (argc < 3) {
+    std::fprintf(stderr, "Usage: %s <strategy_shared_library> <strategy_name> [num_events]\n",
+                 argv[0]);
+    std::fprintf(stderr, "  Example: %s ./libstrategy_messy.dylib strategy_messy 10\n", argv[0]);
+    return -1;
   }
-
   std::string strategyLibPath = argv[1];
-  OnBookFn    onBook          = loadStrategyOnBook(strategyLibPath, "strategy_messy_on_book");
+  std::string strategyName    = argv[2]; // e.g., "strategy_messy"
 
-  // Simple event loop: pretend we have 10 book events
-  const int numEvents = 10;
+  // Build the symbol name for on_book function
+  std::string onBookSymbolName = strategyName + "_on_book";
+  OnBookFn    onBook           = loadStrategyOnBook(strategyLibPath, onBookSymbolName);
+
+  int numEvents = 1;
+  if (argc >= 4) {
+    numEvents = std::atoi(argv[3]);
+    if (numEvents <= 0) {
+      std::fprintf(stderr, "Invalid number of events: %s\n", argv[3]);
+      return -1;
+    }
+  }
+  // Simulate market events
   for (int i = 0; i < numEvents; ++i) {
-    std::printf("[ENGINE] Book Event %d\n", i + 1);
+    std::printf("[ENGINE] Processing market event %d\n", i + 1);
     onBook(); // Call the strategy's on_book function
   }
 

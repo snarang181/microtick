@@ -11,5 +11,9 @@ extern "C" {
 /// qty: signed quantity of the order (positive for buy, negative for sell)
 void mt_order_send(std::int32_t symbol_id, std::int8_t side, double price, std::int64_t qty);
 
-/// TODO: add more variants like mt_order_cancel etc.
+/// Cancel orders for a given symbol/side.
+/// For now, cancel the most recent order only.
+void mt_order_cancel(std::int32_t symbol_id, std::int8_t side);
+
+/// TODO: add more variants
 } // extern "C"
