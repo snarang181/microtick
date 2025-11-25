@@ -28,7 +28,7 @@ struct EngineState {
 
 static EngineState engineState; // global engine state
 
-extern "C" void mt_order_send(double price, std::int64_t qty) {
+extern "C" void mt_order_send(std::int32_t symbol_id, std::int8_t side, double price, std::int64_t qty) {
   std::int64_t orderId = engineState.nextOrderId++; // assign unique order ID
   Order        newOrder{orderId, price, qty};
   engineState.openOrders.push_back(newOrder);
@@ -43,8 +43,11 @@ extern "C" void mt_order_send(double price, std::int64_t qty) {
   engineState.position += qty;
   engineState.cash -= price * static_cast<double>(qty);
 
+  const char *symbolName = (symbol_id == 0) ? "AAPL" : (symbol_id == 1) ? "MSFT" : "UNKNOWN"; //  Simple symbol mapping for now
+  const char *sideName = (side > 0) ? "BUY" : "SELL";
+
   // Log order and fill
-  std::printf("[ENGINE] Order Sent: ID=%lld, Price=%.2f, Qty=%lld\n", orderId, price, qty);
+  std::printf("[ENGINE] Order Sent: ID=%lld, Symbol=%s, Side=%s, Price=%.2f, Qty=%lld\n", orderId, symbolName, sideName, price, qty);
 }
 
 using OnBookFn = void (*)();
