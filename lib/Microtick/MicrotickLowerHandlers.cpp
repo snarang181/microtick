@@ -52,6 +52,13 @@ static func::FuncOp lowerSingleHandler(HandlerOp handlerOp, ModuleOp module, OpB
   // Remove tick.yield ops and replace with func.return
   for (auto it = entryBlock->begin(), e = entryBlock->end(); it != e;) {
     Operation &op = *it++; // Increment iterator before potentially erasing
+    // Validation is done, the risk-check ops can be removed.
+    if (isa<microtick::tick::RiskCheckNotionalOp, microtick::tick::RiskCheckInventoryOp>(op)) {
+      op.erase();
+      continue;
+    }
+
+    // Replace tick.yield with func.return
     if (auto yieldOp = dyn_cast<YieldOp>(op)) {
       OpBuilder yb(yieldOp);
       (void) func::ReturnOp::create(yb, yieldOp.getLoc(), ValueRange{});

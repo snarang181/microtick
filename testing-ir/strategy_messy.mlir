@@ -1,4 +1,3 @@
-// testing-ir/strategy_messy.mlir
 module {
   func.func @strategy_messy() {
     tick.on_book {
@@ -9,12 +8,10 @@ module {
       tick.risk.check_inventory { limit = 1000 : i64 }
 
       tick.order.send %cst, %c50_i64
-        symbol("AAPL")
-        side("Buy") : f64, i64
+        symbol("AAPL") side("Buy") : f64, i64
 
       tick.yield
     }
-
     return
   }
 }
