@@ -160,4 +160,7 @@ void microtick::tick::registerMicrotickPasses() {
   mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
     return microtick::tick::createMicrotickCanonicalizeHandlersPass();
   });
+  mlir::registerPass([]() -> std::unique_ptr<mlir::Pass> {
+    return microtick::tick::createMicrotickLowerHandlersPass();
+  });
 }

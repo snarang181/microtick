@@ -31,6 +31,9 @@ std::unique_ptr<mlir::Pass> createMicrotickLowerRuntimePass();
 /// We hoist all tick.risk.check_* ops to the top of the handler
 std::unique_ptr<mlir::Pass> createMicrotickCanonicalizeHandlersPass();
 
+// Lower handler ops into plain func.func entrypoints.
+std::unique_ptr<mlir::Pass> createMicrotickLowerHandlersPass();
+
 /// Register all MicroTick passes.
 void registerMicrotickPasses();
 
